@@ -6,6 +6,7 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
@@ -77,33 +78,67 @@ public final class NgramSuggestionRow extends HorizontalScrollView {
     }
 
     public static NgramSuggestionRow attach(Context context, View anchor) {
-        if (!(anchor.getParent() instanceof ViewGroup)) return null;
+        if (anchor == null || !(anchor.getParent() instanceof ViewGroup)) {
+            return null;
+        }
+
+        /*
+         * HeliBoard 4.1 structure:
+         *
+         * LinearLayout main_keyboard_frame
+         *   -> FrameLayout strip_container
+         *        -> SuggestionStripView
+         *   -> KeyboardWrapperView
+         *
+         * We want the SuperNgram row BELOW strip_container and ABOVE
+         * the keyboard, not overlaid inside the FrameLayout.
+         */
+        View target = anchor;
         ViewGroup p = (ViewGroup) anchor.getParent();
+
+        if (p instanceof FrameLayout && p.getParent() instanceof ViewGroup) {
+            target = p;
+            p = (ViewGroup) p.getParent();
+        }
 
         // Remove stale row when the IME input view is recreated.
         for (int i = p.getChildCount() - 1; i >= 0; i--) {
             View c = p.getChildAt(i);
-            if (c instanceof NgramSuggestionRow) p.removeViewAt(i);
+            if (c instanceof NgramSuggestionRow) {
+                p.removeViewAt(i);
+            }
         }
 
         NgramSuggestionRow row = new NgramSuggestionRow(context);
-        int h = Math.round(36 * context.getResources().getDisplayMetrics().density);
+        int h = Math.round(
+                36 * context.getResources().getDisplayMetrics().density);
 
         if (p instanceof LinearLayout) {
-            int idx = p.indexOfChild(anchor);
-            p.addView(row, idx + 1, new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, h));
+            int idx = p.indexOfChild(target);
+            if (idx < 0) return null;
+
+            p.addView(
+                    row,
+                    idx + 1,
+                    new LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            h
+                    )
+            );
             return row;
         }
-        if (p instanceof RelativeLayout && anchor.getId() != View.NO_ID) {
-            RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, h);
-            lp.addRule(RelativeLayout.BELOW, anchor.getId());
+
+        if (p instanceof RelativeLayout && target.getId() != View.NO_ID) {
+            RelativeLayout.LayoutParams lp =
+                    new RelativeLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            h
+                    );
+            lp.addRule(RelativeLayout.BELOW, target.getId());
             p.addView(row, lp);
             return row;
         }
 
-        // Conservative fallback: no UI surgery on an unknown parent type.
         return null;
     }
 }
