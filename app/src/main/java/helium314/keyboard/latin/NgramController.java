@@ -45,17 +45,20 @@ public final class NgramController implements NgramSuggestionRow.Listener {
 
     private final Runnable refreshRunnable = this::refreshNow;
 
-    private final ClipboardManager.OnPrimaryClipChangedListener clipListener = () -> {
-        if (prefs.getBoolean("clipboard_auto_learning", false) && learningAllowed) {
-            learnClipboardAsync(false);
-        }
-    };
+    private final ClipboardManager.OnPrimaryClipChangedListener clipListener;
 
     public NgramController(LatinIME service) {
         this.service = service;
         this.engine = new SuperNgramEngine(service);
         this.prefs = service.getSharedPreferences("super_ngram_prefs", Context.MODE_PRIVATE);
         this.clipboard = (ClipboardManager) service.getSystemService(Context.CLIPBOARD_SERVICE);
+
+        this.clipListener = () -> {
+            if (prefs.getBoolean("clipboard_auto_learning", false) && learningAllowed) {
+                learnClipboardAsync(false);
+            }
+        };
+
         if (clipboard != null) clipboard.addPrimaryClipChangedListener(clipListener);
     }
 
