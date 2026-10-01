@@ -1,4 +1,3 @@
-cat > .github/workflows/supergram-build.yml <<'EOF'
 name: supergram-build
 
 on:
