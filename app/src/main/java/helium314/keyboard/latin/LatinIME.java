@@ -140,6 +140,9 @@ public class LatinIME extends InputMethodService implements
     private View mInputView;
     private InsetsOutlineProvider mInsetsUpdater;
     private SuggestionStripView mSuggestionStripView;
+    // SUPER_NGRAM_PATCH_V1: parallel predictor; original HeliBoard dictionaries untouched.
+    private NgramController mNgramController;
+    private NgramSuggestionRow mNgramSuggestionRow;
 
     private RichInputMethodManager mRichImm;
     final KeyboardSwitcher mKeyboardSwitcher;
@@ -547,6 +550,8 @@ public class LatinIME extends InputMethodService implements
         mDisplayContext = KtxKt.getDisplayContext(this);
         KeyboardSwitcher.init(this);
         super.onCreate();
+        // SUPER_NGRAM_PATCH_V1
+        mNgramController = new NgramController(this);
 
         loadSettings();
         mClipboardHistoryManager.onCreate();
@@ -692,6 +697,11 @@ public class LatinIME extends InputMethodService implements
 
     @Override
     public void onDestroy() {
+        // SUPER_NGRAM_PATCH_V1
+        if (mNgramController != null) {
+            mNgramController.close();
+            mNgramController = null;
+        }
         mClipboardHistoryManager.onDestroy();
         mDictionaryFacilitator.closeDictionaries();
         mSettings.onDestroy();
@@ -769,6 +779,12 @@ public class LatinIME extends InputMethodService implements
         if (hasSuggestionStripView()) {
             mSuggestionStripView.setRtl(mRichImm.getCurrentSubtype().isRtlSubtype());
             mSuggestionStripView.setListener(this, view);
+        // SUPER_NGRAM_PATCH_V1
+        if (mNgramController != null) {
+            mNgramSuggestionRow = NgramSuggestionRow.attach(this, mSuggestionStripView);
+            mNgramController.attachRow(mNgramSuggestionRow);
+            mNgramController.scheduleRefresh();
+        }
         }
     }
 
@@ -850,6 +866,8 @@ public class LatinIME extends InputMethodService implements
     }
 
     void onStartInputViewInternal(final EditorInfo editorInfo, final boolean restarting) {
+        // SUPER_NGRAM_PATCH_V1
+        if (mNgramController != null) mNgramController.onStartInput(editorInfo);
         super.onStartInputView(editorInfo, restarting);
 
         setGestureDataGatheringMode(editorInfo, restarting);
@@ -1616,6 +1634,8 @@ public class LatinIME extends InputMethodService implements
      * @param inputTransaction The transaction that has been executed.
      */
     private void updateStateAfterInputTransaction(final InputTransaction inputTransaction) {
+        // SUPER_NGRAM_PATCH_V1
+        if (mNgramController != null) mNgramController.scheduleRefresh();
         switch (inputTransaction.getRequiredShiftUpdate()) {
             case InputTransaction.SHIFT_UPDATE_LATER -> mHandler.postUpdateShiftState();
             case InputTransaction.SHIFT_UPDATE_NOW -> mKeyboardSwitcher
